@@ -1,12 +1,26 @@
 #!/usr/bin/env python
 
 import os
+import string
+import random
 import flask
 from flask import Flask
+
+import models
 
 
 app = Flask(__name__)
 app.debug = True
+
+
+def detect_paas():
+    if 'DOTCLOUD_PROJECT' in os.environ:
+        return 'dotcloud'
+    if 'VCAP_APPLICATION' in os.environ:
+        return 'appfog'
+    if os.environ.get('PYTHONHOME') and os.environ.get('PYTHONHOME').startswith('/app/.heroku/'):
+        return 'heroku'
+    return 'local'
 
 
 def response(data, code=200):
@@ -38,6 +52,22 @@ def simple():
 @app.route('/env')
 def environ():
     return response(dict(os.environ))
+
+
+@app.route('/db')
+def db():
+    gen_rand = lambda: ''.join(random.choice(string.letters) for i in xrange(256))
+    paas = detect_paas()
+    session = models.get_session(paas)
+    # Test writing to the DB
+    for i in xrange(50):
+        session.add(models.Test(payload=gen_rand()))
+    session.commit()
+    # Test reading
+    for obj in session.query(models.Test).all():
+        session.delete(obj)
+    session.commit()
+    return 'ok'
 
 
 if __name__ == '__main__':

@@ -1,2 +1,5 @@
 flask
 simplejson
+sqlalchemy
+psycopg2
+mysql-python
